@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Naruto Shadow Clone Gesture</title>
+
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
+
+<style>
+body{margin:0;background:black;overflow:hidden;}
+video,canvas{
+position:absolute;
+top:0;
+left:0;
+width:100vw;
+height:100vh;
+object-fit:cover;
+}
+</style>
+</head>
+
+<body>
+
+<video id="video" autoplay playsinline></video>
+<canvas id="canvas"></canvas>
+
+<script>
+
+const video = document.getElementById("video");
+const canvas = document.getElementById("canvas");
+const ctx = canvas.getContext("2d");
+
+canvas.width = innerWidth;
+canvas.height = innerHeight;
+
+navigator.mediaDevices.getUserMedia({video:true})
+.then(s=>video.srcObject=s);
+
+const hands = new Hands({
+locateFile:f=>`https://cdn.jsdelivr.net/npm/@mediapipe/hands/${f}`
+});
+
+hands.setOptions({
+maxNumHands:2,
+modelComplexity:1,
+minDetectionConfidence:0.7,
+minTrackingConfidence:0.7
+});
+
+let clones=[];
+
+hands.onResults(results=>{
+
+ctx.clearRect(0,0,canvas.width,canvas.height);
+ctx.drawImage(video,0,0,canvas.width,canvas.height);
+
+// draw clones
+clones.forEach(c=>{
+ctx.globalAlpha=c.a;
+ctx.drawImage(video,c.x,c.y,canvas.width,canvas.height);
+c.a-=0.01;
+});
+clones=clones.filter(c=>c.a>0);
+ctx.globalAlpha=1;
+
+
+// ---------- NARUTO SIGN DETECTION ----------
+
+if(results.multiHandLandmarks && results.multiHandLandmarks.length==2){
+
+let h1=results.multiHandLandmarks[0];
+let h2=results.multiHandLandmarks[1];
+
+// index fingertip positions
+let i1=h1[8];
+let i2=h2[8];
+
+// distance between index tips
+let dx=i1.x-i2.x;
+let dy=i1.y-i2.y;
+let dist=Math.sqrt(dx*dx+dy*dy);
+
+// wrists (to check hands are close)
+let w1=h1[0];
+let w2=h2[0];
+let wdx=w1.x-w2.x;
+let wdy=w1.y-w2.y;
+let wdist=Math.sqrt(wdx*wdx+wdy*wdy);
+
+
+// Naruto seal condition:
+// index tips VERY close + wrists close
+
+if(dist < 0.05 && wdist < 0.25){
+
+// spawn shadow clones
+for(let i=0;i<4;i++){
+clones.push({
+x:(Math.random()-0.5)*300,
+y:(Math.random()-0.5)*200,
+a:0.5
+});
+}
+
+}
+
+}
+
+});
+
+const cam=new Camera(video,{
+onFrame:async()=>{
+await hands.send({image:video});
+},
+width:1280,
+height:720
+});
+
+cam.start();
+
+</script>
+
+</body>
+</html>
